@@ -10,3 +10,5 @@
 - Both LCD and IMU sensor using I2C communicate with uC
 - Using a timer to sample data form sensor, pass the obtained data through a low filter to reduce noise and detect the peek of data stream
  and treat a peek like a step
+
+![total_a_and_g](https://github.com/Truongdhvnu/stepCounter/assets/122275694/8c71e22d-74c3-46b4-b9b8-76ecf0ed0442)
