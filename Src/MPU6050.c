@@ -1,38 +1,65 @@
 #include "MPU6050.h"
+#include "I2C1.h"
+#include <math.h>
 
-void MPU6050_init(MPU6050_name* mpu, I2C_HandleTypeDef* hi2c_MPU, uint8_t sample_rate_devide) {
-		mpu->I2C = hi2c_MPU;
-		uint8_t data = 0;
-		// check if sensor is responding
-		HAL_I2C_Mem_Read(hi2c_MPU, MPU6050_ADDR, WHO_AM_I, 1, &data, 1, 1000);
-		if(data != 0x68) return;
-		// wake the sensor up
-		data = 0x00;
-		HAL_I2C_Mem_Write(hi2c_MPU, MPU6050_ADDR, PWR_MGMT_1, 1,&data, 1, 1000);
-		// set the sample rate = 8k/(1 + sample_rate_devide)
-		data = sample_rate_devide;
-		HAL_I2C_Mem_Write(hi2c_MPU, MPU6050_ADDR, SMPLRT_DIV, 1, &data, 1, 1000);
-		// configure the Accelerometer and Gyroscope
-		data = 0x00;
-		HAL_I2C_Mem_Write(hi2c_MPU, MPU6050_ADDR, GYRO_CONFIG, 1, &data, 1, 1000);
-		HAL_I2C_Mem_Write(hi2c_MPU, MPU6050_ADDR, ACCEL_CONFIG, 1, &data, 1, 1000);
+int16_t MPU6050_accX;
+int16_t MPU6050_accY;
+int16_t MPU6050_accZ;
+
+int16_t MPU6050_read_accX(void) {
+		uint8_t data[2];
+		I2C_Read(MPU6050_ADDR, ACCEL_XOUT_H, data, 2);
+		return (int16_t)(data[0] << 8 | data[1]);
+		 
 }
 
-uint16_t MPU6050_read_accX(MPU6050_name* mpu) {
+int16_t MPU6050_read_accY(void) {
 		uint8_t data[2];
-		HAL_I2C_Mem_Read(mpu->I2C, MPU6050_ADDR, ACCEL_XOUT_H, 1, data, 2, 1000);
-		return (int16_t)(data[0] << 8 | data[0]);
-}
-
-uint16_t MPU6050_read_accY(MPU6050_name* mpu) {
-		uint8_t data[2];
-		HAL_I2C_Mem_Read(mpu->I2C, MPU6050_ADDR, ACCEL_YOUT_H, 1, data, 2, 1000);
-		return (int16_t)(data[0] << 8 | data[0]);
+		I2C_Read(MPU6050_ADDR, ACCEL_YOUT_H, data, 2);
+		return (int16_t)(data[0] << 8 | data[1]);
 }	
 
-
-uint16_t MPU6050_read_accZ(MPU6050_name* mpu) {
+int16_t MPU6050_read_accZ(void) {
 		uint8_t data[2];
-		HAL_I2C_Mem_Read(mpu->I2C, MPU6050_ADDR, ACCEL_ZOUT_H, 1, data, 2, 1000);
-		return (int16_t)(data[0] << 8 | data[0]);
+		I2C_Read(MPU6050_ADDR, ACCEL_ZOUT_H, data, 2);
+		return (int16_t)(data[0] << 8 | data[1]);
+}
+
+double MPU_read_Acc_total(void) {
+		uint8_t data[6];
+		I2C_Read(MPU6050_ADDR, ACCEL_YOUT_H, data, 6);
+		MPU6050_accX = (data[0] << 8) | data[1];
+		MPU6050_accY = (data[2] << 8) | data[3];
+		MPU6050_accZ = (data[4] << 8) | data[5];
+		double total_acc = MPU6050_accX*MPU6050_accX*1.0 + MPU6050_accY*MPU6050_accY*1.0 + MPU6050_accZ*MPU6050_accZ*1.0;
+		total_acc = sqrt(total_acc) / MPU6050_ASENS;		
+		return total_acc;
+}
+
+void MPU_Read(uint8_t addr, uint8_t reg, uint8_t *buff, uint8_t size) {
+		I2C_Read(addr, reg, buff, size);
+}
+
+void MPU_Write(uint8_t addr, uint8_t reg, uint8_t data){
+		I2C_Write_To_Reg(addr, reg, data);
+}
+ 
+void MPU6050_init(void) {
+
+	uint8_t check;
+	uint8_t Data;
+	MPU_Read(MPU6050_ADDR, WHO_AM_I, &check, 1);
+	if (check == 0x68)  // 0x68 will be returned by the sensor if everything goes well
+	{
+		Data = 0;
+		MPU_Write(MPU6050_ADDR, PWR_MGMT_1, Data);
+
+		// Set DATA_RATE by writing SMPLRT_DIV register
+		Data = 79;
+		MPU_Write(MPU6050_ADDR, SMPLRT_DIV, Data);
+
+		Data = 0x00;
+		MPU_Write(MPU6050_ADDR, ACCEL_CONFIG, Data);
+		MPU_Write(MPU6050_ADDR, GYRO_CONFIG, Data);
+	}
 }

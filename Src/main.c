@@ -1,327 +1,102 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2023 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
-#include "main.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
+#include <stm32f10x.h>
+#include <math.h>
 #include <stdio.h>
-#include "1602A.h"
+#include "I2C1.h"
 #include "MPU6050.h"
-#include "lpfilter.h"
-/* USER CODE END Includes */
+#include "LCD1.h"
+#include "systick.h"
+#include "TIMER2.h"
 
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
+#define BUTTON_PAUSE (1u<<6)
+#define BUTTON_RESET (1u<<7)
+#define LED_RED_PIN (1u<<5)
 
-/* USER CODE END PTD */
+void GPIO_Init(void);
+void Init(void);
 
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
+uint8_t mode = 0;
+uint32_t step_count = 0;
 
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-
-TIM_HandleTypeDef htim2;
-
-/* USER CODE BEGIN PV */
-LCD_1602A LCD1;
-char buf[17];
-MPU6050_name MPU;
-uint32_t step_counter = 0;
-float accX_in_g;
-float accY_in_g;
-float accZ_in_g;
-float old_accZ_in_g;
-float accZ_offset;
-int sign_accZ = -1;
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_I2C1_Init(void);
-static void MX_TIM2_Init(void);
-/* USER CODE BEGIN PFP */
-
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-		/* Prevent unused argument(s) compilation warning */
-		UNUSED(htim);
-		//HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-		int16_t data = MPU6050_read_accZ(&MPU);
-		accZ_in_g = 10 * data/MPU6050_SENS;
-		accZ_in_g = low_pass_filter(accZ_in_g);
-		if((sign_accZ > 0) && (accZ_in_g < old_accZ_in_g) && (old_accZ_in_g > accZ_offset + 1.7)) {
-				step_counter++;	
-				LCD_1602A_SetCursor(&LCD1, 0, 0);
-				sprintf(buf, "%d", step_counter);
-				LCD_1602A_WriteString(&LCD1,buf);
+int main(void) {
+		Init();
+		while(1) {
 		}
-		sign_accZ = accZ_in_g > old_accZ_in_g ? 1 : -1;
-		old_accZ_in_g = accZ_in_g;
-}
-/* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_I2C1_Init();
-  MX_TIM2_Init();
-  /* USER CODE BEGIN 2 */
-	MPU6050_init(&MPU, &hi2c1, 79u);
-	accZ_offset = 10 * MPU6050_read_accZ(&MPU) / MPU6050_SENS;
-	old_accZ_in_g = accZ_offset;
-	LCD_1602A_Init(&LCD1, &hi2c1, 0x4E);
-	LCD_1602A_SetCursor(&LCD1, 0, 0);
-	sprintf(buf, "%d", step_counter);
-	LCD_1602A_WriteString(&LCD1,buf);
-	HAL_TIM_Base_Start_IT(&htim2);
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-
-		//HAL_Delay(20);
-  }
-  /* USER CODE END 3 */
 }
 
-/**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
-    Error_Handler();
-  }
+void GPIO_Config(void) {
+		RCC->APB2ENR |= RCC_APB2ENR_IOPCEN | RCC_APB2ENR_IOPAEN;
+		
+		//Init LED_GREEN at PC13	  
+    GPIOC->CRH &= ~(GPIO_CRH_MODE13 | GPIO_CRH_CNF13);
+    GPIOC->CRH |= GPIO_CRH_MODE13_0;
+		
+		//Init LED_RED at PA5
+		GPIOA->CRL &= ~(GPIO_CRL_MODE5 | GPIO_CRL_CNF5);
+    GPIOA->CRL |= GPIO_CRL_MODE5_0;
+	
+		//Init for BUTTON_PAUSE pin
+		GPIOA->CRL &= ~(GPIO_CRL_MODE6 | GPIO_CRL_CNF6);  // clear bits
+		GPIOA->CRL |= GPIO_CRL_CNF6_1;  									// input push-pull
+		GPIOA->ODR |= GPIO_ODR_ODR6;  										// PA6 is in Pull UP mode
+		//Interrupt configyre for BUTTON_PAUSE
+		AFIO->EXTICR[1] |= AFIO_EXTICR2_EXTI6_PA;					// Interrupt at port A
+		EXTI->IMR |= BUTTON_PAUSE; 												// Disable Int mask
+		EXTI->FTSR |= BUTTON_PAUSE;												// Trigger at Falling Edge
+		
+		//Init for BUTTON_RESET pin
+		GPIOA->CRL &= ~(GPIO_CRL_MODE7 | GPIO_CRL_CNF7);  // clear bits
+		GPIOA->CRL |= GPIO_CRL_CNF7_1;  									// input push-pull
+		GPIOA->ODR |= GPIO_ODR_ODR7;  										// PA6 is in Pull UP mode
+		//Interrupt configyre for BUTTON_PAUSE
+		AFIO->EXTICR[1] |= AFIO_EXTICR2_EXTI7_PA;					// Interrupt at port A
+		EXTI->IMR |= BUTTON_RESET; 												// Disable Int mask
+		EXTI->FTSR |= BUTTON_RESET;												// Trigger at Falling Edge
+		
+		//Enable Interrupt
+		NVIC_SetPriority(EXTI9_5_IRQn, 3);								
+		NVIC_EnableIRQ (EXTI9_5_IRQn);		
 }
 
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
+void EXTI9_5_IRQHandler(void) {	
+	if (EXTI->PR & BUTTON_PAUSE) {
+			if (mode == 0) {
+					mode = 1;
+					GPIOC->ODR |= GPIO_ODR_ODR13;
+					GPIOA->ODR |= LED_RED_PIN;
+			} else {
+					GPIOA->ODR &= ~LED_RED_PIN;
+					GPIOC->BRR &= GPIO_ODR_ODR13;
+					mode = 0;
+			}
+			delay(200);
+			EXTI->PR |= BUTTON_PAUSE;
+	} else if (EXTI->PR & BUTTON_RESET) {
+			if(mode == 3) {
+					GPIOA->ODR &= ~LED_RED_PIN;
+					GPIOC->BRR &= GPIO_ODR_ODR13;
+					mode = 0;
+			} else {
+					mode = 3;
+					GPIOC->ODR |= GPIO_ODR_ODR13;
+					GPIOA->ODR |= LED_RED_PIN;
+					step_count = 0;
+					LCD_1602A_ClearScrean();
+					LCD_1602A_WriteString("0");
+			}
+			delay(200);
+			EXTI->PR |= BUTTON_RESET;
+	}
 }
 
-/**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 8000;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 19;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-
+void Init() {
+		GPIO_Config();
+		SysTick_Init();
+		I2C_Init();
+		MPU6050_init();				//MPU6050 va LCD can cac ham cua I2C va Systick nen can Init theo thu tu
+		LCD_1602A_Init();
+		TIM2_Config();				//Trong TIM2 dung cac ngoai vi tren nen can Init sau cung
+		char buf[17];
+		sprintf(buf, "%d", step_count);
+		LCD_1602A_SetCursor(0, 0);
+		LCD_1602A_WriteString(buf);
 }
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PC13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
-}
-
-/* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
-
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
-  /* USER CODE END Error_Handler_Debug */
-}
-
-#ifdef  USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t *file, uint32_t line)
-{
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
-}
-#endif /* USE_FULL_ASSERT */
