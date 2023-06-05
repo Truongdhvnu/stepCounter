@@ -61,8 +61,8 @@ void EXTI9_5_IRQHandler(void) {
 	if (EXTI->PR & BUTTON_PAUSE) {
 			if (mode == 0) {
 					mode = 1;
-					GPIOC->ODR |= GPIO_ODR_ODR13;
-					GPIOA->ODR |= LED_RED_PIN;
+					GPIOC->ODR |= GPIO_ODR_ODR13;  // noi trc voi nguon
+					GPIOA->ODR |= LED_RED_PIN;			// noi truoc voi dat
 			} else {
 					GPIOA->ODR &= ~LED_RED_PIN;
 					GPIOC->BRR &= GPIO_ODR_ODR13;
@@ -71,18 +71,10 @@ void EXTI9_5_IRQHandler(void) {
 			delay(200);
 			EXTI->PR |= BUTTON_PAUSE;
 	} else if (EXTI->PR & BUTTON_RESET) {
-			if(mode == 3) {
-					GPIOA->ODR &= ~LED_RED_PIN;
-					GPIOC->BRR &= GPIO_ODR_ODR13;
-					mode = 0;
-			} else {
-					mode = 3;
-					GPIOC->ODR |= GPIO_ODR_ODR13;
-					GPIOA->ODR |= LED_RED_PIN;
 					step_count = 0;
+					LCD_1602A_SetCursor(0, 0);
 					LCD_1602A_ClearScrean();
-					LCD_1602A_WriteString("0");
-			}
+					LCD_1602A_WriteString("Steps: 0");
 			delay(200);
 			EXTI->PR |= BUTTON_RESET;
 	}
@@ -98,5 +90,5 @@ void Init() {
 		char buf[17];
 		sprintf(buf, "%d", step_count);
 		LCD_1602A_SetCursor(0, 0);
-		LCD_1602A_WriteString(buf);
+		LCD_1602A_WriteString("Steps: 0");
 }

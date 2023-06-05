@@ -36,8 +36,8 @@ void I2C_Stop(void) {
 
 void I2C_EV6_1(void) {
 		I2C1->CR1 &= ~I2C_CR1_ACK;  								// clear the ACK bit 
-		I2C1->CR1 |= I2C_CR1_STOP;  								// Stop I2C
-		//uint8_t temp = I2C1->SR1 | I2C1->SR2;  		// read SR1 and SR2 to clear the ADDR bit.... EV6 condition
+		uint8_t temp = I2C1->SR1 | I2C1->SR2;  		// read SR1 and SR2 to clear the ADDR bit.... EV6 condition
+		I2C1->CR1 |= I2C_CR1_STOP;  								// Stop I2C		
 }
 
 void I2C_EV7_1(void) {

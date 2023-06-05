@@ -1,28 +1,22 @@
 #include "lpfilter.h"
-// a and b coeficient of butterworth filter
-// fs = 100 fc = 7.5
-//const float b_coefficient[size_filter] = {1.7826, 7.1304, 10.6957, 7.1304, 1.7826};
-//const float a_coefficient[size_filter] = {1000, -2773.7, 3019, -1504.8, 287.9304};
 
+// butterworth
 // fs = 50; fc = 7.5
-const float b_coefficient[size_filter] = {18.5630, 74.2520, 111.3781, 74.2520, 18.5630};
-const float a_coefficient[size_filter] = {1000.0, -1570.4, 1275.6, -484.4, 76.2};
+//const float b_coefficient[size_filter] = {18.5630, 74.2520, 111.3781, 74.2520, 18.5630};
+//const float a_coefficient[size_filter] = {1000.0, -1570.4, 1275.6, -484.4, 76.2};
+
+// shebyshev 
+// fs = 50, Rp = 1, fc = 4
+const float b_coefficient[size_filter] = {0.78833, 3.2, 4.7, 3.2, 0.78833};
+const float a_coefficient[size_filter] = {1000, -3292.8, 4294.2, -2607.4, 620.1};
+	
 float input_buf[size_filter] = {0};
 int end_input_buf = 0;
-float filted_buf[size_filter] = {0};
+float filted_buf[size_filter] = {1};
 int end_filted_buf = 0;
 
-uint8_t last_idex(uint8_t current) {
-    if(current == 0) {
-        return size_filter - 1;
-    } else {
-        return current - 1;
-    }
-}
-
-uint8_t next_idex(uint8_t current) {
-    return (current + 1) % size_filter;
-}
+#define last_idex(current) ((current-1+size_filter)%size_filter)
+#define next_idex(current) ((current+1)%size_filter)
 
 float low_pass_filter(float input) {
     uint8_t input_buf_idex = end_input_buf;
@@ -44,4 +38,17 @@ float low_pass_filter(float input) {
     filted_buf[end_filted_buf] = temp; 
     end_filted_buf = next_idex(end_filted_buf);
     return temp;
+}
+
+uint8_t is_peak(void) {
+		uint8_t a[5];
+		a[0] = last_idex(end_filted_buf);
+		for(int i = 1; i < 5; i++) {
+				a[i] = last_idex(a[i-1]);
+		}
+		if ((filted_buf[a[0]] < filted_buf[a[1]]) && (filted_buf[a[1]] < filted_buf[a[2]]) 
+				&& (filted_buf[a[2]] > filted_buf[a[3]]) && (filted_buf[a[3]] > filted_buf[a[4]]) && filted_buf[a[2]] > 1.2) {
+						return 1;
+				}
+		return 0;
 }
